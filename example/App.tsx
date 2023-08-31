@@ -1,11 +1,23 @@
-import { StyleSheet, Text, View } from 'react-native';
+import React from "react";
+import { Button, StyleSheet, Text, View } from "react-native";
 
-import * as ExpoSuperTorch from 'expo-super-torch';
+import * as ExpoSuperTorch from "expo-super-torch";
 
 export default function App() {
+  const [torchIntensity, setTorchIntensity] = React.useState(0);
+  async function handleTorchIntensity() {
+    const torchIntensity = await ExpoSuperTorch.getTorchIntensity();
+    setTorchIntensity(torchIntensity);
+  }
+
+
   return (
     <View style={styles.container}>
-      <Text>{ExpoSuperTorch.hello()}</Text>
+      <Button title="Fire Torch" onPress={ExpoSuperTorch.fireTorch} />
+      <Button title="Stop torch" onPress={ExpoSuperTorch.stopTorch} />
+      <Button title="Toggle torch (WIP)" onPress={ExpoSuperTorch.toggleTorch} />
+      <Button title="Get torch intensity" onPress={handleTorchIntensity} />
+      <Text>{torchIntensity}</Text>
     </View>
   );
 }
@@ -13,8 +25,8 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
