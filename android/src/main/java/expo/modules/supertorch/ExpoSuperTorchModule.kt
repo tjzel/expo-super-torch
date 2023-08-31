@@ -1,38 +1,60 @@
 package expo.modules.supertorch
 
 import android.content.Context
-import android.hardware.camera2.CameraCharacteristics
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.hardware.SensorManager.SENSOR_DELAY_FASTEST
 import android.hardware.camera2.CameraManager
 import android.os.Build
+import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import androidx.annotation.RequiresApi
+import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 
+class TooOldAndroidException : CodedException (
+  message = "Too old Android (unlucky)"
+)
 class ExpoSuperTorchModule : Module() {
-  // Each module class must implement the definition function. The definition consists of components
-  // that describes the module's functionality and behavior.
-  // See https://docs.expo.dev/modules/module-api for more details about available components.
   @RequiresApi(Build.VERSION_CODES.TIRAMISU)
   override fun definition() = ModuleDefinition {
-    // Sets the name of the module that JavaScript code will use to refer to the module. Takes a string as an argument.
-    // Can be inferred from module's class name, but it's recommended to set it explicitly for clarity.
-    // The module will be accessible from `requireNativeModule('ExpoSuperTorch')` in JavaScript.
+    // Silly initialization block
     val context = appContext.reactContext
     val cameraManager = context?.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+    val handler = Handler(Looper.getMainLooper())
     val torchCamera = cameraManager.cameraIdList[0]
     var torchState = false;
     val torchCallback = object : CameraManager.TorchCallback() {
       override fun onTorchModeChanged(cameraId: String, enabled: Boolean) {
         super.onTorchModeChanged(cameraId, enabled)
         torchState = enabled
-        Log.d("torchState", enabled.toString())
         }
       }
-    // ???
-    Looper.prepare()
-    cameraManager.registerTorchCallback(torchCallback, null)
+    cameraManager.registerTorchCallback(torchCallback, handler)
+    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    val sensorEventListener = object : SensorEventListener {
+      override fun onSensorChanged(event: SensorEvent) {
+        val azimuth = event.values[0]
+        val pitch = event.values[1]
+
+        if (-0.2 < azimuth && azimuth < 0.2 && -0.2 < pitch && pitch < 0.2) {
+          cameraManager.setTorchMode(torchCamera, true)
+        } else {
+          cameraManager.setTorchMode(torchCamera, false)
+        }
+      }
+
+      override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+        // Ignore accuracy changes
+      }
+    }
+    val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+    sensorManager.registerListener(sensorEventListener, sensor, SENSOR_DELAY_FASTEST)
+    // initialization block
 
     Name("ExpoSuperTorch")
 
@@ -49,11 +71,11 @@ class ExpoSuperTorchModule : Module() {
     }
 
     AsyncFunction("getTorchIntensity") {
-//      try {
-//        return@AsyncFunction cameraManager?.getTorchStrengthLevel(cameraManager.cameraIdList[0])
-//      } catch (e: Exception) {
-//        throw Exception("It seems your Android is too old sadge" + e.message)
-//      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        return@AsyncFunction cameraManager.getTorchStrengthLevel(torchCamera)
+      } else {
+        throw TooOldAndroidException()
+      }
     }
   }
 }

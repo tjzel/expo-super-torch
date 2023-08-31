@@ -6,8 +6,13 @@ import * as ExpoSuperTorch from "expo-super-torch";
 export default function App() {
   const [torchIntensity, setTorchIntensity] = React.useState(0);
   async function handleTorchIntensity() {
-    const torchIntensity = await ExpoSuperTorch.getTorchIntensity();
-    setTorchIntensity(torchIntensity);
+    try {
+      const torchIntensity = await ExpoSuperTorch.getTorchIntensity();
+      setTorchIntensity(torchIntensity);
+    } catch (error: any) {
+      setTorchIntensity(error.toString());
+      console.log(error.toString());
+    }
   }
 
 
